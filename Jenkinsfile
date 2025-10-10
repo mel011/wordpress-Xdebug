@@ -4,12 +4,13 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo 'Checking out repo...'
-                git branch: 'main', url: 'git@github.com:mel011/wordpress-Xdebug.git'
+                git branch: 'master', url: 'git@github.com:mel011/wordpress-Xdebug.git'
             }
         }
-        stage('Test') {
+        stage('Build/Test') {
             steps {
-                echo 'Repo checkout successful!'
+                echo 'Running a test command...'
+                sh 'ls -l'          // List repo files to confirm checkout
             }
         }
     }
