@@ -3,11 +3,7 @@ pipeline {
 
   environment {
     SLACK_CHANNEL = '#testing'
-    GITHUB_REPO = 'mel011/wordpress-Xdebug.git'
-  }
-
-  options {
-    ansiColor('xterm')
+    SLACK_WEBHOOK = credentials('slack-token') // if using CASC secret
   }
 
   stages {
@@ -17,7 +13,8 @@ pipeline {
           def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master').replaceFirst(/^origin\//, '')
           slackSend(
             channel: SLACK_CHANNEL,
-            message: "🚀 *Deployment started* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Open Build #${env.BUILD_NUMBER}>)"
+            message: "🚀 Deployment started for ${env.JOB_NAME} on branch ${branch} (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)",
+            webhookUrl: env.SLACK_WEBHOOK
           )
         }
       }
@@ -25,37 +22,26 @@ pipeline {
 
     stage('Deploy') {
       steps {
-        echo "Deploying ${env.JOB_NAME} build ${env.BUILD_NUMBER}..."
-        // your deployment steps here
-      }
-    }
-
-    stage('Info') {
-      steps {
-        sh 'git rev-parse HEAD'
+        echo "Deploying ${env.JOB_NAME}..."
       }
     }
   }
 
   post {
     success {
-      script {
-        def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master').replaceFirst(/^origin\//, '')
-        slackSend(
-          channel: SLACK_CHANNEL,
-          message: "✅ *Deployment succeeded* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
-        )
-      }
+      slackSend(
+        channel: SLACK_CHANNEL,
+        message: "✅ Deployment succeeded for ${env.JOB_NAME} (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)",
+        webhookUrl: env.SLACK_WEBHOOK
+      )
     }
 
     failure {
-      script {
-        def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master').replaceFirst(/^origin\//, '')
-        slackSend(
-          channel: SLACK_CHANNEL,
-          message: "❌ *Deployment failed* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
-        )
-      }
+      slackSend(
+        channel: SLACK_CHANNEL,
+        message: "❌ Deployment failed for ${env.JOB_NAME} (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)",
+        webhookUrl: env.SLACK_WEBHOOK
+      )
     }
   }
 }
