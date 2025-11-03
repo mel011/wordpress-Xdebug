@@ -3,18 +3,17 @@ pipeline {
 
   environment {
     SLACK_CHANNEL = '#testing'
-    SLACK_WEBHOOK = credentials('slack-token') // if using CASC secret
   }
 
   stages {
     stage('Start') {
       steps {
         script {
-          def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master').replaceFirst(/^origin\//, '')
+          def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main').replaceFirst(/^origin\//, '')
           slackSend(
             channel: SLACK_CHANNEL,
-            message: "🚀 Deployment started for ${env.JOB_NAME} on branch ${branch} (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)",
-            webhookUrl: env.SLACK_WEBHOOK
+            color: '#439FE0',
+            message: "🚀 *Deployment started* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
           )
         }
       }
@@ -31,16 +30,16 @@ pipeline {
     success {
       slackSend(
         channel: SLACK_CHANNEL,
-        message: "✅ Deployment succeeded for ${env.JOB_NAME} (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)",
-        webhookUrl: env.SLACK_WEBHOOK
+        color: 'good',
+        message: "✅ *Deployment succeeded* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
       )
     }
 
     failure {
       slackSend(
         channel: SLACK_CHANNEL,
-        message: "❌ Deployment failed for ${env.JOB_NAME} (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)",
-        webhookUrl: env.SLACK_WEBHOOK
+        color: 'danger',
+        message: "❌ *Deployment failed* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
       )
     }
   }
