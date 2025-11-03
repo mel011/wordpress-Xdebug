@@ -3,18 +3,19 @@ pipeline {
 
   environment {
     SLACK_CHANNEL = '#testing'
+    SLACK_WEBHOOK = "${env.SLACK_WEBHOOK}"
   }
 
   stages {
     stage('Start') {
       steps {
         script {
-          def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main').replaceFirst(/^origin\//, '')
-          slackSend(
-            channel: SLACK_CHANNEL,
-            color: '#439FE0',
-            message: "🚀 *Deployment started* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
-          )
+          def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master').replaceFirst(/^origin\//, '')
+          sh """
+            curl -X POST -H 'Content-type: application/json' \
+              --data '{"text": "🚀 *Deployment started* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"}' \
+              ${SLACK_WEBHOOK}
+          """
         }
       }
     }
@@ -28,19 +29,19 @@ pipeline {
 
   post {
     success {
-      slackSend(
-        channel: SLACK_CHANNEL,
-        color: 'good',
-        message: "✅ *Deployment succeeded* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
-      )
+      sh """
+        curl -X POST -H 'Content-type: application/json' \
+          --data '{"text": "✅ *Deployment succeeded* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"}' \
+          ${SLACK_WEBHOOK}
+      """
     }
 
     failure {
-      slackSend(
-        channel: SLACK_CHANNEL,
-        color: 'danger',
-        message: "❌ *Deployment failed* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
-      )
+      sh """
+        curl -X POST -H 'Content-type: application/json' \
+          --data '{"text": "❌ *Deployment failed* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"}' \
+          ${SLACK_WEBHOOK}
+      """
     }
   }
 }
