@@ -1,47 +1,44 @@
-// Fully scripted Jenkinsfile with workspace wipe and forced checkout for reliable Slack notifications
+// Multibranch-friendly scripted pipeline with reliable Slack notifications
 
 node {
-    // --- Prepare workspace ---
-    stage('Prepare') {
-        // Clean workspace to avoid cached SCM issues
-        deleteDir()
-        // Force checkout to populate env variables even for manual runs
-        checkout scm
-    }
+    stage('Notify Slack (Start)') {
+        script {
+            // Determine branch safely, fallback to 'manual'
+            def branch = env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'manual'
 
-    // Determine branch name safely for manual builds
-    def branch = env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'manual'
-
-    // --- Slack start message ---
-    stage('Start') {
-        withCredentials([string(credentialsId: 'slack-webhook', variable: 'WEBHOOK')]) {
-            def startMsg = "🚀 *Deployment started* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
-            sh """
-                curl -X POST -H 'Content-type: application/json' \
-                  --data '{\"text\": \"${startMsg}\"}' \
-                  $WEBHOOK
-            """
+            // Send Slack message
+            withCredentials([string(credentialsId: 'slack-webhook', variable: 'WEBHOOK')]) {
+                def startMsg = "🚀 *Deployment started* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
+                sh """
+                    curl -X POST -H 'Content-type: application/json' \
+                      --data '{\"text\": \"${startMsg}\"}' \
+                      $WEBHOOK
+                """
+            }
         }
     }
 
     // --- Deploy stage ---
     stage('Deploy') {
         echo "Deploying ${env.JOB_NAME}..."
-        // Add your deployment logic here
+        // Your deployment logic here
     }
 
     // --- Post-build Slack message ---
-    stage('Post-build') {
-        withCredentials([string(credentialsId: 'slack-webhook', variable: 'WEBHOOK')]) {
+    stage('Notify Slack (Post)') {
+        script {
+            def branch = env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'manual'
             def statusEmoji = currentBuild.currentResult == 'SUCCESS' ? '✅' : '❌'
             def statusText = currentBuild.currentResult == 'SUCCESS' ? 'Deployment succeeded' : 'Deployment failed'
-            def postMsg = "${statusEmoji} *${statusText}* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
 
-            sh """
-                curl -X POST -H 'Content-type: application/json' \
-                  --data '{\"text\": \"${postMsg}\"}' \
-                  $WEBHOOK
-            """
+            withCredentials([string(credentialsId: 'slack-webhook', variable: 'WEBHOOK')]) {
+                def postMsg = "${statusEmoji} *${statusText}* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
+                sh """
+                    curl -X POST -H 'Content-type: application/json' \
+                      --data '{\"text\": \"${postMsg}\"}' \
+                      $WEBHOOK
+                """
+            }
         }
     }
 }
