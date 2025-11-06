@@ -1,62 +1,54 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    SLACK_CHANNEL = '#testing'
-    GITHUB_REPO = 'mel011/wordpress-Xdebug.git'
-  }
+    // Pull the Slack webhook from Jenkins credentials (Secret Text)
+    environment {
+        SLACK_WEBHOOK = credentials('slack-webhook') 
+    }
 
-  options {
-    ansiColor('xterm')
-  }
-
-  stages {
-    stage('Start') {
-      steps {
-        script {
-          def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master').replaceFirst(/^origin\//, '')
-          slackSend(
-            channel: SLACK_CHANNEL,
-            message: "🚀 *Deployment started* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Open Build #${env.BUILD_NUMBER}>)"
-          )
+    stages {
+        stage('Start') {
+            steps {
+                script {
+                    def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master').replaceFirst(/^origin\//, '')
+                    def message = "🚀 *Deployment started* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
+                    sh """
+                        curl -X POST -H 'Content-type: application/json' \
+                          --data '{"text": "${message}"}' \
+                          ${SLACK_WEBHOOK}
+                    """
+                }
+            }
         }
-      }
+
+        stage('Deploy') {
+            steps {
+                echo "Deploying ${env.JOB_NAME}..."
+            }
+        }
     }
 
-    stage('Deploy') {
-      steps {
-        echo "Deploying ${env.JOB_NAME} build ${env.BUILD_NUMBER}..."
-        // your deployment steps here
-      }
-    }
+    post {
+        success {
+            script {
+                def message = "✅ *Deployment succeeded* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
+                sh """
+                    curl -X POST -H 'Content-type: application/json' \
+                      --data '{"text": "${message}"}' \
+                      ${SLACK_WEBHOOK}
+                """
+            }
+        }
 
-    stage('Info') {
-      steps {
-        sh 'git rev-parse HEAD'
-      }
+        failure {
+            script {
+                def message = "❌ *Deployment failed* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
+                sh """
+                    curl -X POST -H 'Content-type: application/json' \
+                      --data '{"text": "${message}"}' \
+                      ${SLACK_WEBHOOK}
+                """
+            }
+        }
     }
-  }
-
-  post {
-    success {
-      script {
-        def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master').replaceFirst(/^origin\//, '')
-        slackSend(
-          channel: SLACK_CHANNEL,
-          message: "✅ *Deployment succeeded* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
-        )
-      }
-    }
-
-    failure {
-      script {
-        def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master').replaceFirst(/^origin\//, '')
-        slackSend(
-          channel: SLACK_CHANNEL,
-          message: "❌ *Deployment failed* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
-        )
-      }
-    }
-  }
 }
-
