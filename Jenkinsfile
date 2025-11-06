@@ -28,21 +28,14 @@ pipeline {
         }
     }
 
+    // Always post messages after build finishes, regardless of SCM changes
     post {
-        success {
+        always {
             script {
-                def message = "✅ *Deployment succeeded* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
-                sh """
-                    curl -X POST -H 'Content-type: application/json' \
-                      --data '{"text": "${message}"}' \
-                      ${SLACK_WEBHOOK}
-                """
-            }
-        }
-
-        failure {
-            script {
-                def message = "❌ *Deployment failed* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
+                def statusEmoji = currentBuild.currentResult == 'SUCCESS' ? '✅' : '❌'
+                def statusText = currentBuild.currentResult == 'SUCCESS' ? 'Deployment succeeded' : 'Deployment failed'
+                def message = "${statusEmoji} *${statusText}* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
+                
                 sh """
                     curl -X POST -H 'Content-type: application/json' \
                       --data '{"text": "${message}"}' \
