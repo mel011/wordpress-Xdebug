@@ -2,20 +2,22 @@ pipeline {
     agent any
 
     stages {
+        stage('Prepare') {
+            steps {
+                // Ensure we have a branch name even for manual runs
+                script {
+                    // Do a checkout to populate env variables properly
+                    checkout scm
+                    env.BUILD_BRANCH = env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'manual'
+                }
+            }
+        }
+
         stage('Start') {
             steps {
                 script {
-                    withCredentials([string(credentialsId: 'slack-webhook', variable: 'WEBHOOK')]) {
-                        // Always default to "manual" if no branch is detected
-                        def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'manual')
-                        def message = "🚀 *Deployment started* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
-
-                        sh """
-                            curl -X POST -H 'Content-type: application/json' \
-                              --data '{"text": "${message}"}' \
-                              $WEBHOOK
-                        """
-                    }
+                    // Send Slack start message
+                    sendSlack("🚀 *Deployment started* for *${env.JOB_NAME}* on branch `${env.BUILD_BRANCH}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)")
                 }
             }
         }
@@ -30,19 +32,22 @@ pipeline {
     post {
         always {
             script {
-                withCredentials([string(credentialsId: 'slack-webhook', variable: 'WEBHOOK')]) {
-                    def statusEmoji = currentBuild.currentResult == 'SUCCESS' ? '✅' : '❌'
-                    def statusText = currentBuild.currentResult == 'SUCCESS' ? 'Deployment succeeded' : 'Deployment failed'
-                    def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'manual')
-                    def message = "${statusEmoji} *${statusText}* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
-
-                    sh """
-                        curl -X POST -H 'Content-type: application/json' \
-                          --data '{"text": "${message}"}' \
-                          $WEBHOOK
-                    """
-                }
+                // Send Slack post-build message
+                def statusEmoji = currentBuild.currentResult == 'SUCCESS' ? '✅' : '❌'
+                def statusText = currentBuild.currentResult == 'SUCCESS' ? 'Deployment succeeded' : 'Deployment failed'
+                sendSlack("${statusEmoji} *${statusText}* for *${env.JOB_NAME}* on branch `${env.BUILD_BRANCH}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)")
             }
         }
+    }
+}
+
+// Helper function to send Slack messages using credentials
+def sendSlack(String message) {
+    withCredentials([string(credentialsId: 'slack-webhook', variable: 'WEBHOOK')]) {
+        sh """
+            curl -X POST -H 'Content-type: application/json' \
+              --data '{"text": "${message}"}' \
+              $WEBHOOK
+        """
     }
 }
