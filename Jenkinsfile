@@ -1,47 +1,54 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    SLACK_CHANNEL = '#testing'
-    SLACK_WEBHOOK = "${env.SLACK_WEBHOOK}"
-  }
+    // Pull the Slack webhook from Jenkins credentials (Secret Text)
+    environment {
+        SLACK_WEBHOOK = credentials('slack-webhook') 
+    }
 
-  stages {
-    stage('Start') {
-      steps {
-        script {
-          def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master').replaceFirst(/^origin\//, '')
-          sh """
-            curl -X POST -H 'Content-type: application/json' \
-              --data '{"text": "🚀 *Deployment started* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"}' \
-              ${SLACK_WEBHOOK}
-          """
+    stages {
+        stage('Start') {
+            steps {
+                script {
+                    def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'master').replaceFirst(/^origin\//, '')
+                    def message = "🚀 *Deployment started* for *${env.JOB_NAME}* on branch `${branch}` (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
+                    sh """
+                        curl -X POST -H 'Content-type: application/json' \
+                          --data '{"text": "${message}"}' \
+                          ${SLACK_WEBHOOK}
+                    """
+                }
+            }
         }
-      }
+
+        stage('Deploy') {
+            steps {
+                echo "Deploying ${env.JOB_NAME}..."
+            }
+        }
     }
 
-    stage('Deploy') {
-      steps {
-        echo "Deploying ${env.JOB_NAME}..."
-      }
-    }
-  }
+    post {
+        success {
+            script {
+                def message = "✅ *Deployment succeeded* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
+                sh """
+                    curl -X POST -H 'Content-type: application/json' \
+                      --data '{"text": "${message}"}' \
+                      ${SLACK_WEBHOOK}
+                """
+            }
+        }
 
-  post {
-    success {
-      sh """
-        curl -X POST -H 'Content-type: application/json' \
-          --data '{"text": "✅ *Deployment succeeded* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"}' \
-          ${SLACK_WEBHOOK}
-      """
+        failure {
+            script {
+                def message = "❌ *Deployment failed* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"
+                sh """
+                    curl -X POST -H 'Content-type: application/json' \
+                      --data '{"text": "${message}"}' \
+                      ${SLACK_WEBHOOK}
+                """
+            }
+        }
     }
-
-    failure {
-      sh """
-        curl -X POST -H 'Content-type: application/json' \
-          --data '{"text": "❌ *Deployment failed* for *${env.JOB_NAME}* (<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>)"}' \
-          ${SLACK_WEBHOOK}
-      """
-    }
-  }
 }
